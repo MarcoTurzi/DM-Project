@@ -2,6 +2,8 @@ import numpy as np
 import numpy.random as npr
 from treelib import Tree
 import random
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
 class Node():
     def __init__(self):
@@ -9,6 +11,7 @@ class Node():
         self.left = None
         self.right = None
         self.if_leaf = False
+        self.maj_class = None
 
 
     def graph(self, tree, pre_dec):
@@ -25,8 +28,11 @@ class Node():
                 self.right.graph(tree, str(self.decision)+ran)
             else:
                 ran = str(random.randint(1,100))
-                tree.create_node("leaf"+pre_dec,"leaf"+pre_dec+ran, parent=pre_dec)
-
+                tree.create_node("leaf"+pre_dec+" class:"+str(self.maj_class),"leaf"+pre_dec+ran, parent=pre_dec)
+    
+    def set_majority_class(self, maj_class):
+        self.maj_class = maj_class
+        
     def set_decision(self, decision):
         self.decision = decision
 
@@ -47,6 +53,9 @@ class Node():
 
     def get_rightNode(self):
         return self.right
+    
+    def get_majority_class(self):
+        return self.maj_class
 
 # return the features to be checked by bestsplit 
 def select_features(x, nfeat):
@@ -68,11 +77,13 @@ def tree_grow(x, y, nmin, minleaf, nfeat):
     #check if x satisfies nmin, if not, set this node as leaf node and return it
     num_cases = x.shape[0]
     if num_cases < nmin:
+        node.set_majority_class(0 if  len(y[y == 0]) >= len(y[y == 1]) else 1)
         node.set_leaf(True)
         return node
 
     #check if all values in x belong to same label (for credit.txt only, not for assignment part 2)
     if np.unique(y).size == 1:
+        node.set_majority_class(0 if  len(y[y == 0]) >= len(y[y == 1]) else 1)
         node.set_leaf(True)
         return node
 
@@ -104,6 +115,7 @@ def tree_grow(x, y, nmin, minleaf, nfeat):
 
     #check if this split satisfies minleaf
     if (left_lables.size < minleaf) or (right_lables.size < minleaf):
+        node.set_majority_class(0 if  len(y[y == 0]) >= len(y[y == 1]) else 1)
         node.set_leaf(True)
         return node
 
@@ -174,8 +186,30 @@ def get_best_split(x, y):
 
     return best_split, max_quality
 
+def tree_pred(x, tr):
+    y = np.array([])
+    for obs in x:
+        node = tr
+        while node.if_leaf == False:
+            dec = node.get_decision()
+            obs_feat = dec[0]
+            dec_val = dec[1]
+            node = node.get_leftNode() if obs[obs_feat] <= dec_val else node.get_rightNode()
+        y = np.append(y, node.get_majority_class())
+    
+    return y
 
-
+def tree_pred_b(x, trs):
+    preds = []
+    final_pred = np.array([])
+    for tree in trs:
+        preds.append(tree_pred(x, tree))
+    preds = np.array(preds)   
+    for i in range(preds.shape[1]):
+        final_pred = np.append(final_pred, 0 if sum(preds[:,i]) <= len(preds)/2 else 1)
+        
+    return final_pred
+    
 #print all nodes of a tree, for test only
 def tree_traversals(node):
     print(node.get_decision())
@@ -192,11 +226,9 @@ credit_data = np.genfromtxt('pima.txt', delimiter=',', skip_header=True)
 size = credit_data.shape
 x = credit_data[:, 0:(size[1] - 1)]
 y = credit_data[:, -1]
-
-root_nodes = tree_grow_b(x, y, 12, 8, 9,3)
-for tree_node in root_nodes:
-    tree = Tree()
-    tree_node.graph(tree, "root")
-    tree.show()
-
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=1)
+root_nodes = tree_grow_b(x_train, y_train, 12, 8, 9,3)
+print(tree_pred_b(x_test, root_nodes))
+print(y_test)
+print(accuracy_score(y_test,tree_pred(x_test, root_nodes[0])))
 tree_traversals(root_node)
