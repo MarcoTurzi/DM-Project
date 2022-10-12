@@ -136,14 +136,35 @@ def tree_grow_b(x, y, nmin, minleaf, nfeat, m):
     '''
     #shuffle the dataset
     t_set = np.array([np.append(xx, yy) for xx,yy in zip(x,y)])
-    npr.shuffle(t_set)
+    b_sets = []
+    for i in range(m):
+        b_set = []
+        for i in range(t_set.shape[0]):
+            b_set.append( t_set[np.random.randint(t_set.shape[0])])
+        
+        
+        b_sets.append(b_set)
+    
+    preds = []
+    b_sets = np.array(b_sets)
+    i = 0
+    for b_set in b_sets:
+        print("Training tree ", i)
+        i = i + 1
+        preds.append(tree_grow(b_set[:,:b_set.shape[1]- 1], b_set[:,b_set.shape[1] - 1], nmin, minleaf, nfeat))
+    
+
+    return preds
+    '''npr.shuffle(t_set)
     #creates m subset from the dataset
     bootstraps = np.array(np.array_split(t_set, m)) 
     #for every subset generates a tree
     trees = np.array([])
     for bs in bootstraps:
+        print("Test")
+        print(bs[:,bs.shape[1] -1])
         trees = np.append(trees, tree_grow(bs[:,:bs.shape[1] -1], bs[:,bs.shape[1] -1], nmin,minleaf, nfeat))
-    return trees
+    return trees'''
     
     
     
@@ -158,7 +179,7 @@ def get_best_split(x, y):
 
     #calculate the original gini index before spliting
     count = np.unique(y, return_counts = True)
-    frequency = count[1][0]/y.size
+    frequency = count[1][0]/len(y)
     gini_original = frequency * (1 - frequency)
 
     best_split = 0
@@ -202,9 +223,13 @@ def tree_pred(x, tr):
 def tree_pred_b(x, trs):
     preds = []
     final_pred = np.array([])
+    i = 0
     for tree in trs:
+        print("Predicting using tree ", i)
+        i = i + 1
         preds.append(tree_pred(x, tree))
-    preds = np.array(preds)   
+    preds = np.array(preds) 
+    
     for i in range(preds.shape[1]):
         final_pred = np.append(final_pred, 0 if sum(preds[:,i]) <= len(preds)/2 else 1)
         
@@ -222,13 +247,13 @@ def tree_traversals(node):
 
 #test cases
 
-credit_data = np.genfromtxt('pima.txt', delimiter=',', skip_header=True)
-size = credit_data.shape
-x = credit_data[:, 0:(size[1] - 1)]
-y = credit_data[:, -1]
-x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=1)
-root_nodes = tree_grow_b(x_train, y_train, 12, 8, 9,3)
-print(tree_pred_b(x_test, root_nodes))
-print(y_test)
-print(accuracy_score(y_test,tree_pred(x_test, root_nodes[0])))
-tree_traversals(root_node)
+if __name__ == "__main__":
+    credit_data = np.genfromtxt('pima.txt', delimiter=',', skip_header=True)
+    size = credit_data.shape
+    x = credit_data[:, 0:(size[1] - 1)]
+    y = credit_data[:, -1]
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=1)
+    root_nodes = tree_grow_b(x_train, y_train, 12, 8, 9,3)
+    print(tree_pred_b(x_test, root_nodes))
+    print(y_test)
+    print(accuracy_score(y_test,tree_pred(x_test, root_nodes[0])))
