@@ -1,46 +1,74 @@
+"""
+Tingyang Jiao   7535481
+Macro
+Laurian
+"""
+
 import numpy as np
 
+"""
+Node(): The basic data structure of decision tree implementation
+Each Node object represents a node in decision tree
+"""
 class Node():
 	def __init__(self):
 		self.decision = None
-		self.left = None
-		self.right = None
+		self.left = None 
+		self.right = None 
 		self.if_leaf = False
 		self.leaf_label = 0
 
+	#set the decision of this node; decision: a list of length 2, with the best variable and the best split of this variable
 	def set_decision(self, decision):
 		self.decision = decision
 
+	#set the left child of this node; left_node: a Node object
 	def set_leftNode(self, left_node):
 		self.left = left_node
 
+	#set the right child of this node; right_node: a Node object
 	def set_rightNode(self, right_node):
 		self.right = right_node
 
+	#set if this node is leaf; value = True if it's leaf, False if not
 	def set_leaf(self, value):
 		self.if_leaf = value
 
+	#return if this node is leaf; return Ture if it is, False if not
 	def check_if_leaf(self):
 		return self.if_leaf
 
+	#return the decision of this node
 	def get_decision(self):
 		return self.decision
 
+	#return the left child
 	def get_leftNode(self):
 		return self.left
 
+	#return the right child
 	def get_rightNode(self):
 		return self.right
 
-	def get_leaf_label(self):
-		return self.leaf_label
-
+	#for leaf node, set leaf label; leaf_label: the predict value of this leaf
 	def set_leaf_label(self, leaf_label):
 		self.leaf_label = leaf_label
 
+	#return the leaf label
+	def get_leaf_label(self):
+		return self.leaf_label
 
 	
 
+"""
+tree_grow: construct a decision tree by recursion
+x: 2D array, inupt data with attribute values
+y: 1D array, label values
+nmin: int, minimum amount of values a node must contain
+minleaf: int, minimum anount of values a leaf node must contain
+nfeat: amount of features, if nfeaf is less than the total amount of features in x, do random forest
+Return: the root node of this decision tree
+"""
 def tree_grow(x, y, nmin, minleaf, nfeat):
 	#create a new node
 	node = Node()
@@ -108,10 +136,79 @@ def tree_grow(x, y, nmin, minleaf, nfeat):
 
 	return node
 
+"""
+tree_pred: use decision tree to redict the labels of input variables
+x: 2D array, input variables with predictions required
+tr: the root node of decision tree
+Return: y, 1D array, the labels of prediction
+"""
+def tree_pred(x, tr):
+	#create y which contains the predicted value of each variable in x
+	x_coord = x.shape[0]
+	y = np.zeros(x_coord)
 
-#calculate the best split point of one feature x
-#x: feature values of 1 variable, size 1 by n
-#y: labels
+	#do the prediction 1 by 1
+	for i in range(x_coord):
+		label = single_pred(x[i, :], tr)
+		y[i] = label
+	
+	return y
+
+
+"""
+tree_grow_b: bagging, randomly sample from input dataset with replace, and build a decision tree on this sample,
+             repeat this step to build several decision trees
+x: 2D array, inupt data with attribute values
+y: 1D array, label values
+nmin: int, minimum amount of values a node must contain
+minleaf: int, minimum anount of values a leaf node must contain
+nfeat: amount of features, if nfeaf is less than the total amount of features in x, do random forest
+m: the amount of trees need to be built
+Return: a list of m trees
+"""
+def tree_grow_b(x, y, nmin, minleaf, nfeat, m):
+	trees_list = []
+	for i in range(m):
+		random_rows = np.random.choice(np.arange(x.shape[0]), x.shape[0], replace = True)
+		x_samples = x[random_rows, :]
+		y_samples = y[random_rows]
+		tree = tree_grow(x_samples, y_samples, nmin, minleaf, nfeat)
+		trees_list.append(tree)
+
+	return trees_list
+
+
+"""
+tree_pred_b:implement tree_pred to x with each tree in the tree_list of m trees, 
+             find the majority label of each variable and set it as final predicted label
+x: 2D array, inupt data with attribute values
+tree_list: a list of m decision trees
+Return: final prediction of each variable, 1D array
+"""
+def tree_pred_b(x, trees_list):
+	#do the prediction M times
+	prediction = np.zeros([len(trees_list), x.shape[0]])
+	for i in range(len(trees_list)):
+		prediction[i] = tree_pred(x, trees_list[i])
+
+	#get the majority prediction of each variable
+	final_predict = np.zeros(prediction.shape[1])
+	for i in range(prediction.shape[1]):
+		count = np.unique(prediction[:, i], return_counts = True)
+		frequency = count[1][0]/prediction[:, i].size
+		if frequency >= (1 - frequency):
+			final_predict[i] = count[0][0]
+		else:
+			final_predict[i] = count[0][1]
+	return final_predict
+
+
+"""
+get_best_split: calculate the best split point of one feature x
+x: feature values of 1 variable, array, size 1 by n
+y: labels, 1D array
+Return: the best split point on this feature and the quality of split
+"""
 def get_best_split(x, y):
 	#calculate all candidate split points
 	x_sorted = np.sort(np.unique(x))
@@ -148,8 +245,10 @@ def get_best_split(x, y):
 	
 	return best_split, max_quality
 
-
-#print all nodes of a tree, for test only
+"""
+tree_traversals: print all nodes of a tree, for test only
+node: the root node of decision tree
+"""
 def tree_traversals(node):
 	print(node.get_decision())
 	if node.if_leaf == False:
@@ -159,18 +258,12 @@ def tree_traversals(node):
 		return
 	return
 
-def tree_pred(x, tr):
-	#create y which is the predicted value of each item in x
-	x_coord = x.shape[0]
-	y = np.zeros(x_coord)
-
-	for i in range(x_coord):
-		label = single_pred(x[i, :], tr)
-		y[i] = label
-	
-	return y
-
-#predit the label of one singel input vector
+"""
+single_pred: predit the label of one singel input vector, by recursion
+input: features of 1 variable to be predicted
+tr: root node of decision tree
+Return: predicted label of this input variable
+"""
 def single_pred(input, tr):
 	if tr.check_if_leaf():
 		return tr.get_leaf_label()
@@ -180,38 +273,12 @@ def single_pred(input, tr):
 		label = single_pred(input, tr.get_rightNode())
 	return label
 
-def tree_grow_b(x, y, nmin, minleaf, nfeat, m):
-	trees_list = []
-	for i in range(m):
-		random_rows = np.random.choice(np.arange(x.shape[0]), x.shape[0], replace = True)
-		x_samples = x[random_rows, :]
-		y_samples = y[random_rows]
-		tree = tree_grow(x_samples, y_samples, nmin, minleaf, nfeat)
-		trees_list.append(tree)
-
-	return trees_list
-
-def tree_pred_b(x, trees_list):
-	#do the prediction M times
-	prediction = np.zeros([len(trees_list), x.shape[0]])
-	for i in range(len(trees_list)):
-		prediction[i] = tree_pred(x, trees_list[i])
-
-	#get the majority prediction of each variable
-	final_predict = np.zeros(prediction.shape[1])
-	for i in range(prediction.shape[1]):
-		count = np.unique(prediction[:, i], return_counts = True)
-		frequency = count[1][0]/prediction[:, i].size
-		if frequency >= (1 - frequency):
-			final_predict[i] = count[0][0]
-		else:
-			final_predict[i] = count[0][1]
-	return final_predict
 
 
 
 
 
+"""
 #test cases
 
 credit_data = np.genfromtxt('pima.txt', delimiter=',', skip_header=True)
@@ -229,4 +296,7 @@ result = tree_pred(x, tree)
 print(np.unique(result, return_counts = True))
 print(np.count_nonzero(y == 0))
 print(np.count_nonzero(y == 1))
+"""
+
+
 
