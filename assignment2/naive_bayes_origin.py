@@ -28,7 +28,7 @@ X1 = vectorizer1.fit_transform(text_train)
 FeatureName_train = vectorizer1.get_feature_names_out() #array of feature names
 counts_train = X1.toarray() #array of counts of each feature
 
-#creating the label array
+#creating the labels array
 decep_labels = np.zeros(len(decep_train))
 truth_labels = np.ones(len(truth_train))
 train_labels = np.concatenate((decep_labels, truth_labels))
@@ -48,7 +48,7 @@ files_truth_test = datasets.load_files("C:/Users/Tingyang/Documents/Utrecht Univ
 #raw testing data
 decep_test = files_decep_test.data #list, size 80
 truth_test = files_truth_test.data #list, size 80
-#text_train = decep_train + truth_train #list, size 640
+#text_train = decep_train + truth_train
 
 
 #pre-process training data
@@ -70,19 +70,7 @@ testResult_truth = classifier.predict(counts_truth_test)
 countsResult_truth = np.unique(testResult_truth, return_counts = True)
 print(countsResult_truth)
 
-precision = countsResult_truth[1][1]/(countsResult_truth[1][1] + countsResult_truth[1][0])
+precision = (countsResult_truth[1][1] + countsResult_decep[1][0])/160
 print(precision)
 
 
-
-
-
-"""
-corpus = ['This is the first document.', 'This document is the second document.', 
-'And this is the third one.','Is this the first document?']
-
-vectorizer = CountVectorizer()
-X = vectorizer.fit_transform(corpus)
-print(vectorizer.get_feature_names_out())
-print(X.toarray())
-"""
