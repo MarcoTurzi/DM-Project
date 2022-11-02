@@ -2,7 +2,7 @@ import os
 import numpy as np
 import re
 from nltk.corpus import stopwords
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import precision_score, recall_score, accuracy_score, f1_score
 
@@ -11,19 +11,31 @@ train_tun_dir = ["fold1", "fold2", "fold3", "fold4"]
 test_dir = ["fold5"] # I don't like it as a list but ok
 train_tun_reviews = np.array([])
 train_tun_labels = []
+decep_reviews = np.array([])
+decep_labels = []
+truth_reviews = np.array([])
+truth_labels = []
 
 #dataset selection
 for directory in train_tun_dir:
     for file in os.listdir("Part2\\negative_reviews\deceptive_from_MTurk\\"+directory):
         with open("Part2\\negative_reviews\deceptive_from_MTurk\\"+directory+"/"+file) as f:
-            train_tun_reviews = np.append(train_tun_reviews, f.readlines())
-            train_tun_labels.append(1)
+            decep_reviews = np.append(decep_reviews, f.readlines())
+            decep_labels.append(1)
+            '''train_tun_reviews = np.append(train_tun_reviews, f.readlines())
+            train_tun_labels.append(1)'''
     for file in os.listdir("Part2\\negative_reviews\\truthful_from_Web\\"+directory):
         with open("Part2\\negative_reviews\\truthful_from_Web\\"+directory+"/"+file) as f:
-            train_tun_reviews = np.append(train_tun_reviews, f.readlines())
-            train_tun_labels.append(0)
-
+            '''train_tun_reviews = np.append(train_tun_reviews, f.readlines())
+            train_tun_labels.append(0)'''
+            truth_reviews = np.append(truth_reviews, f.readlines())
+            truth_labels.append(0)
 #dictionary and function to deal with conntractions
+for i in range(len(decep_reviews)):
+    train_tun_reviews = np.append(train_tun_reviews,decep_reviews[i])
+    train_tun_labels.append(decep_labels[i])
+    train_tun_reviews = np.append(train_tun_reviews,truth_reviews[i])
+    train_tun_labels.append(truth_labels[i])
 contractions = { 
 "ain't": "am not",
 "aren't": "are not",
@@ -164,12 +176,12 @@ for i in range(len(train_tun_reviews)):
     
     reviews_split = train_tun_reviews[i].split(" ")
     check = np.intersect1d(reviews_split, stops)
-    
+
     if len(check) > 0:
         
         for x in check:
             
-            train_tun_reviews[i] = train_tun_reviews[i].replace(" "+x+" "," ")
+           train_tun_reviews[i] = train_tun_reviews[i].replace(" "+x+" "," ")
     
     #remove puntuaction
     train_tun_reviews[i] = res = re.sub(r'[^\w\s]', '', train_tun_reviews[i])
@@ -186,11 +198,11 @@ folders_number = 10
 folders_text = []
 folders_labels = []
 n_files = len(train_tun_reviews)/folders_number
-permutations = np.random.permutation(len(train_tun_reviews))
+'''permutations = np.random.permutation(len(train_tun_reviews))
 train_tun_reviews = np.array(train_tun_reviews)
 train_tun_reviews = train_tun_reviews[permutations]
 train_tun_labels = np.array(train_tun_labels)
-train_tun_labels = train_tun_labels[permutations]
+train_tun_labels = train_tun_labels[permutations]'''
 
 
 
@@ -200,7 +212,7 @@ for i in range(folders_number):
 
 #vectorizer training
 
-vectorizer = TfidfVectorizer(smooth_idf=True)
+vectorizer = CountVectorizer(ngram_range=(1,2))
 reviews_vectorized = vectorizer.fit_transform(train_tun_reviews)
 
 #classifiers training and evaluation
@@ -231,9 +243,10 @@ for i in range(len(folders_text)):
     
     #classifier training
     
-    classifiers = np.append(classifiers, LogisticRegression(penalty="l2", solver="liblinear", C=0.1*(i+1)))
+    classifiers = np.append(classifiers, LogisticRegression(penalty="l1", solver="liblinear", C=0.1*(i+1)))
     classifiers[i].fit(train_set_reviews, train_set_labels)
     
+
     #prediction and evaluation
     predicted = classifiers[i].predict(test_set_reviews)
     metrics = [precision_score(test_set_labels, predicted), accuracy_score(test_set_labels, predicted), recall_score(test_set_labels, predicted), f1_score(test_set_labels, predicted)]
@@ -290,7 +303,10 @@ for i in range(len(test_reviews)):
     
     test_reviews[i] = re.sub("\d+", "", test_reviews[i])
 
-test_reviews = vectorizer.transform(test_reviews).toarray()    
+test_reviews = vectorizer.transform(test_reviews).toarray()
+
+
 predicted = classifiers[index].predict(test_reviews)
 metrics = [precision_score(test_labels, predicted), accuracy_score(test_labels, predicted), recall_score(test_labels, predicted), f1_score(test_labels, predicted)]
 print(metrics)
+
